@@ -6,7 +6,7 @@ from mediapipe.framework.formats import landmark_pb2
 import queue
 import threading
 import pyautogui as pag
-
+import math
 
 
 BaseOptions = mp.tasks.BaseOptions
@@ -89,6 +89,7 @@ prevTime_ms = 0
 TIME_DIFF_ALLOWED = 2 # mostly 1 millisecond
 MOUSE_SENSITIVITY = 500
 SMOOTHING = 0.015
+MOUSE_CLICK_DIST = 0.2
 pag.FAILSAFE = False
 
 
@@ -177,6 +178,34 @@ def moveMyMouse(x,y,time_ms):
     # prevPos = x, y
     updatePast(x,y,time_ms)
 
+def findFingersUp(result: HandLandmarkerResult, base):
+    """
+    To find if a is up or not
+
+    Params:
+        fingerPoints (HandLandmarkerResult)
+
+        base (int): [fingerBaseIndex] which finger to check if it is up or not
+        
+        1 thumb, 5 index, 9 middle, 12 ring, 17 little
+
+    """
+    fingersPoints = result.hand_landmarks[0]
+    print(fingersPoints[0])
+    tip = fingersPoints[base + 3].x, fingersPoints[base + 3].y 
+    origin = fingersPoints[base + 1].x, fingersPoints[base + 1].y
+    wrist = fingersPoints[0].x, fingersPoints[0].y
+
+    # print(fingerPoints)
+    if math.dist(tip,wrist) > math.dist(wrist,origin):
+        return True
+    return False
+
+def mouseClick(indexTip, middleTip):
+    global MOUSE_CLICK_DIST
+    if math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y)) < MOUSE_CLICK_DIST:
+        pag.click()
+
 # Create a hand landmarker instance with the live stream mode:
 def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
     # print('hand landmarker result: {}'.format(result.landmarks))
@@ -186,12 +215,16 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     if len(result.hand_landmarks) < 1:
         return    
     
-    # print()
     index_tip = result.hand_landmarks[0][8]
+    middle_tip = result.hand_landmarks[0][12]
+    print(index_tip.z)
     # smooth = 
-    
-    moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
-
+    print(findFingersUp(result,5))
+    if findFingersUp(result,5):
+        moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
+        
+        if findFingersUp(result,9):
+            mouseClick(index_tip,middle_tip)
 
     # pos = abs(round(index_tip.x,2)*SCREEN_SIZE[0]), abs(round(index_tip.y,2) * SCREEN_SIZE[1])
     # mPos.put(pos)
