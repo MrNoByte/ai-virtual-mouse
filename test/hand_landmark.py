@@ -20,6 +20,17 @@ mPos = queue.Queue()
 isRunning = True
 
 
+prevPos = (0,0)
+prevTime_ms = 0
+prevClickTime_ms = 0
+
+TIME_DIFF_ALLOWED = 2 # mostly 1 millisecond
+MOUSE_SENSITIVITY = 500
+SMOOTHING = 0.015
+MOUSE_CLICK_DIST = 0.05
+CLICK_DELAY_MS = 10
+
+pag.FAILSAFE = False
 
 MODEL_PATH = 'models/hand_landmarker.task'
 MARGIN = 10  # pixels
@@ -83,14 +94,6 @@ def showImage():
 
 displayThread = threading.Thread(target=showImage)
 displayThread.start()
-prevPos = (0,0)
-prevTime_ms = 0
-
-TIME_DIFF_ALLOWED = 2 # mostly 1 millisecond
-MOUSE_SENSITIVITY = 500
-SMOOTHING = 0.015
-MOUSE_CLICK_DIST = 0.2
-pag.FAILSAFE = False
 
 
 """
@@ -162,7 +165,7 @@ def moveMyMouse(x,y,time_ms):
     mov[0] = 0 if abs(mov[0]) < SMOOTHING else mov[0]
     mov[1] = 0 if abs(mov[1]) < SMOOTHING else mov[1]
     
-    print(f"mov {mov} || pos {x,y} || prev {prevPos}")
+    # print(f"mov {mov} || pos {x,y} || prev {prevPos}")
     # pag.moveTo(SCREEN_SIZE[0],SCREEN_SIZE[1])
     c_pos = pag.position()
     pos = mov[0] *MOUSE_SENSITIVITY + c_pos[0], mov[1]*MOUSE_SENSITIVITY +c_pos[1]
@@ -191,7 +194,7 @@ def findFingersUp(result: HandLandmarkerResult, base):
 
     """
     fingersPoints = result.hand_landmarks[0]
-    print(fingersPoints[0])
+    # print(fingersPoints[0])
     tip = fingersPoints[base + 3].x, fingersPoints[base + 3].y 
     origin = fingersPoints[base + 1].x, fingersPoints[base + 1].y
     wrist = fingersPoints[0].x, fingersPoints[0].y
@@ -201,10 +204,19 @@ def findFingersUp(result: HandLandmarkerResult, base):
         return True
     return False
 
-def mouseClick(indexTip, middleTip):
-    global MOUSE_CLICK_DIST
-    if math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y)) < MOUSE_CLICK_DIST:
+def mouseClick(indexTip, middleTip, time_ms):
+    global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
+    if (time_ms - prevClickTime_ms) < CLICK_DELAY_MS:
+        return
+    
+    dist = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
+    dist = round(dist, 2)
+    print(dist)
+    if dist < MOUSE_CLICK_DIST:
         pag.click()
+        print("mouse click")
+        prevClickTime_ms = time_ms
+        pass
 
 # Create a hand landmarker instance with the live stream mode:
 def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
@@ -217,14 +229,14 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     
     index_tip = result.hand_landmarks[0][8]
     middle_tip = result.hand_landmarks[0][12]
-    print(index_tip.z)
+    # print(index_tip.z)
     # smooth = 
-    print(findFingersUp(result,5))
+    # print(findFingersUp(result,5))
     if findFingersUp(result,5):
         moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
         
         if findFingersUp(result,9):
-            mouseClick(index_tip,middle_tip)
+            mouseClick(index_tip,middle_tip, timestamp_ms)
 
     # pos = abs(round(index_tip.x,2)*SCREEN_SIZE[0]), abs(round(index_tip.y,2) * SCREEN_SIZE[1])
     # mPos.put(pos)
