@@ -7,6 +7,7 @@ import queue
 import threading
 import pyautogui as pag
 import math
+# import pygetwindow as gw
 
 
 BaseOptions = mp.tasks.BaseOptions
@@ -27,7 +28,7 @@ prevClickTime_ms = 0
 TIME_DIFF_ALLOWED = 2 # mostly 1 millisecond
 MOUSE_SENSITIVITY = 500
 SMOOTHING = 0.015
-MOUSE_CLICK_DIST = 0.05
+MOUSE_CLICK_DIST = 0.08
 CLICK_DELAY_MS = 10
 
 pag.FAILSAFE = False
@@ -38,6 +39,7 @@ FONT_SIZE = 1
 FONT_THICKNESS = 1
 HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
 SCREEN_SIZE = pag.size()
+WND_NAME = "video"
 # pag.FAILSAFE = True
 pag.PAUSE = 0
 
@@ -79,12 +81,13 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
 
 def showImage():
-    global images, isRunning
+    global images, isRunning, WND_NAME
 
     while isRunning:
         img = images.get()
         if img is not None:
-            cv.imshow("video", img)
+            cv.imshow(WND_NAME, img)
+            cv.setWindowProperty(WND_NAME,cv.WND_PROP_TOPMOST,1)
 
         if cv.waitKey(1) == ord('q'):
             print("we are done")
@@ -168,7 +171,8 @@ def moveMyMouse(x,y,time_ms):
     # print(f"mov {mov} || pos {x,y} || prev {prevPos}")
     # pag.moveTo(SCREEN_SIZE[0],SCREEN_SIZE[1])
     c_pos = pag.position()
-    pos = mov[0] *MOUSE_SENSITIVITY + c_pos[0], mov[1]*MOUSE_SENSITIVITY +c_pos[1]
+    mov = mov[0] * MOUSE_SENSITIVITY, mov[1] * MOUSE_SENSITIVITY
+    pos = mov[0]  + c_pos[0], mov[1] +c_pos[1]
     pos = max(pos[0],0), max(pos[1],0)
     pos = min(pos[0], SCREEN_SIZE[0] - 2), min(pos[1], SCREEN_SIZE[1]-2)
     # print(pos)
@@ -180,6 +184,7 @@ def moveMyMouse(x,y,time_ms):
     # prevTime_ms = time_ms
     # prevPos = x, y
     updatePast(x,y,time_ms)
+    return mov
 
 def findFingersUp(result: HandLandmarkerResult, base):
     """
@@ -204,19 +209,39 @@ def findFingersUp(result: HandLandmarkerResult, base):
         return True
     return False
 
-def mouseClick(indexTip, middleTip, time_ms):
+def mouseClick(indexTip, middleTip, time_ms, dragOffset = (0,0)):
     global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
-    if (time_ms - prevClickTime_ms) < CLICK_DELAY_MS:
-        return
-    
     dist = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
     dist = round(dist, 2)
     print(dist)
-    if dist < MOUSE_CLICK_DIST:
+    if dist >= MOUSE_CLICK_DIST:
+        return
+    print(f"time diff {time_ms - prevClickTime_ms}")
+    if (time_ms - prevClickTime_ms) > CLICK_DELAY_MS:
         pag.click()
         print("mouse click")
-        prevClickTime_ms = time_ms
-        pass
+    # else:
+        # p = pag.position()
+        # pag.dragTo(p.x, p.y, _pause = False)
+        # print("drag")
+    prevClickTime_ms = time_ms
+
+"""
+# def mouseClick(indexTip, middleTip, time_ms):
+#     global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
+#     if (time_ms - prevClickTime_ms) < CLICK_DELAY_MS:
+#         return
+    
+#     dist = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
+#     dist = round(dist, 2)
+#     print(dist)
+#     # pag.click()
+    
+#     if dist < MOUSE_CLICK_DIST:
+#         pag.click()
+#         print("mouse click")
+#         prevClickTime_ms = time_ms
+"""
 
 # Create a hand landmarker instance with the live stream mode:
 def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
@@ -233,10 +258,11 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     # smooth = 
     # print(findFingersUp(result,5))
     if findFingersUp(result,5):
-        moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
+        # mouse moving offset
+        mOff = moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
         
         if findFingersUp(result,9):
-            mouseClick(index_tip,middle_tip, timestamp_ms)
+            mouseClick(index_tip,middle_tip, timestamp_ms, mOff)
 
     # pos = abs(round(index_tip.x,2)*SCREEN_SIZE[0]), abs(round(index_tip.y,2) * SCREEN_SIZE[1])
     # mPos.put(pos)
@@ -256,7 +282,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
     
     vid = cv.VideoCapture(0)
     i = 0
-
+    # cv.namedWindow(WND_NAME,cv.WINDOW_NORMAL)
     isRunning = vid.isOpened()
     while vid.isOpened() and isRunning:
         i += 1
