@@ -1,3 +1,6 @@
+# this is just test file so there might be bugs in this one 
+# code is also not well documented and written
+
 import numpy as np
 import cv2 as cv
 import mediapipe as mp
