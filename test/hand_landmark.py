@@ -24,12 +24,13 @@ mPos = queue.Queue()
 isRunning = True
 
 
-prevPos = (0,0)
+pPos = (0,0)
 prevTime_ms = 0
+pVel = (0,0)
 prevClickTime_ms = 0
 
 TIME_DIFF_ALLOWED = 2 # mostly 1 millisecond
-MOUSE_SENSITIVITY = 500
+MOUSE_SENSITIVITY = 888
 SMOOTHING = 0.015
 MOUSE_CLICK_DIST = 0.08
 CLICK_DELAY_MS = 10
@@ -141,41 +142,38 @@ displayThread.start()
 # mouseThread.start()
     # print(pos)
 """
-def updatePast(x,y,time_ms):
-    global prevPos, prevTime_ms,SMOOTHING
+def updatePast(x:float,y:float,time_ms:int,vel ):
+    global pPos, prevTime_ms,pVel,SMOOTHING
     prevTime_ms = time_ms
     # prevPos = x,y
-    prevPos = prevPos[0] if abs(x-prevPos[0]) < SMOOTHING else x, prevPos[1] if abs(y-prevPos[1]) < SMOOTHING else y 
+    pVel = vel[0], vel[1]
+    pPos = pPos[0] if abs(x-pPos[0]) < SMOOTHING else x, pPos[1] if abs(y-pPos[1]) < SMOOTHING else y 
     # prevPos = prevPos[0] if x == 0 else x, prevPos[1] if y == 0 else y 
 
 
-def moveMyMouse(x,y,time_ms):
-    global prevPos, prevTime_ms, SMOOTHING, MOUSE_SENSITIVITY, SCREEN_SIZE
+def smoothMouseMove(x,y,time_ms):
+    global pPos, prevTime_ms,pVel, SMOOTHING, MOUSE_SENSITIVITY, SCREEN_SIZE
 
-    # if abs(x - prevPos[0]) < SMOOTHING:
-    #     x = 0
-    # if abs(y - prevPos[1]) < SMOOTHING:
-    #     y = 0
+    
     x = round(x, 2)
     y = round(y, 2)
-    # print(x,y)
     if (time_ms - prevTime_ms) > TIME_DIFF_ALLOWED:
-        # prevTime_ms = time_ms
-        # prevPos = x, y
-        updatePast(x,y,time_ms)
+        updatePast(x,y,time_ms,(0,0))
         return
 
-    # print(x - prevPos[0],y - prevPos[1])
 
-    mov = [(x - prevPos[0]) , (y - prevPos[1])]
-    mov[0] = 0 if abs(mov[0]) < SMOOTHING else mov[0]
-    mov[1] = 0 if abs(mov[1]) < SMOOTHING else mov[1]
-    
-    # print(f"mov {mov} || pos {x,y} || prev {prevPos}")
-    # pag.moveTo(SCREEN_SIZE[0],SCREEN_SIZE[1])
-    c_pos = pag.position()
-    mov = mov[0] * MOUSE_SENSITIVITY, mov[1] * MOUSE_SENSITIVITY
-    pos = mov[0]  + c_pos[0], mov[1] +c_pos[1]
+    cVel = [(x - pPos[0]) , (y - pPos[1])]
+    cVel[0] = 0 if abs(cVel[0]) < SMOOTHING else cVel[0]
+    cVel[1] = 0 if abs(cVel[1]) < SMOOTHING else cVel[1]
+    acc = abs(cVel[0] - pVel[0]), abs(cVel[1] - pVel[1])
+    print(acc)
+    # mouse cursor position
+    m_pos = pag.position()
+    cVel = cVel[0] * MOUSE_SENSITIVITY, cVel[1] * MOUSE_SENSITIVITY
+
+
+    pos = cVel[0] + m_pos[0], cVel[1]+m_pos[1]
+    # pos = cVel[0]  * acc[0]+ m_pos[0], cVel[1] * acc[1]+m_pos[1]
     pos = max(pos[0],0), max(pos[1],0)
     pos = min(pos[0], SCREEN_SIZE[0] - 2), min(pos[1], SCREEN_SIZE[1]-2)
     # print(pos)
@@ -186,8 +184,50 @@ def moveMyMouse(x,y,time_ms):
     # updating past values
     # prevTime_ms = time_ms
     # prevPos = x, y
-    updatePast(x,y,time_ms)
-    return mov
+    updatePast(x,y,time_ms,cVel)
+
+    return cVel
+    
+
+# def moveMyMouse(x,y,time_ms):
+#     global prevPos, prevTime_ms, SMOOTHING, MOUSE_SENSITIVITY, SCREEN_SIZE
+
+#     # if abs(x - prevPos[0]) < SMOOTHING:
+#     #     x = 0
+#     # if abs(y - prevPos[1]) < SMOOTHING:
+#     #     y = 0
+#     x = round(x, 2)
+#     y = round(y, 2)
+#     # print(x,y)
+#     if (time_ms - prevTime_ms) > TIME_DIFF_ALLOWED:
+#         # prevTime_ms = time_ms
+#         # prevPos = x, y
+#         updatePast(x,y,time_ms)
+#         return
+
+#     # print(x - prevPos[0],y - prevPos[1])
+
+#     mov = [(x - prevPos[0]) , (y - prevPos[1])]
+#     mov[0] = 0 if abs(mov[0]) < SMOOTHING else mov[0]
+#     mov[1] = 0 if abs(mov[1]) < SMOOTHING else mov[1]
+    
+#     # print(f"mov {mov} || pos {x,y} || prev {prevPos}")
+#     # pag.moveTo(SCREEN_SIZE[0],SCREEN_SIZE[1])
+#     c_pos = pag.position()
+#     mov = mov[0] * MOUSE_SENSITIVITY, mov[1] * MOUSE_SENSITIVITY
+#     pos = mov[0]  + c_pos[0], mov[1] +c_pos[1]
+#     pos = max(pos[0],0), max(pos[1],0)
+#     pos = min(pos[0], SCREEN_SIZE[0] - 2), min(pos[1], SCREEN_SIZE[1]-2)
+#     # print(pos)
+
+#     pag.moveTo(pos[0],pos[1], _pause=False)
+    
+    
+#     # updating past values
+#     # prevTime_ms = time_ms
+#     # prevPos = x, y
+#     updatePast(x,y,time_ms)
+#     return mov
 
 def findFingersUp(result: HandLandmarkerResult, base):
     """
@@ -212,7 +252,7 @@ def findFingersUp(result: HandLandmarkerResult, base):
         return True
     return False
 
-def mouseClick(indexTip, middleTip, time_ms, dragOffset = (0,0)):
+def mouseClick(indexTip, middleTip, time_ms):
     global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
     dist = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
     dist = round(dist, 2)
@@ -222,12 +262,13 @@ def mouseClick(indexTip, middleTip, time_ms, dragOffset = (0,0)):
     print(f"time diff {time_ms - prevClickTime_ms}")
     if (time_ms - prevClickTime_ms) > CLICK_DELAY_MS:
         pag.click()
+        prevClickTime_ms = time_ms
         print("mouse click")
     # else:
         # p = pag.position()
         # pag.dragTo(p.x, p.y, _pause = False)
         # print("drag")
-    prevClickTime_ms = time_ms
+    
 
 """
 # def mouseClick(indexTip, middleTip, time_ms):
@@ -262,10 +303,11 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     # print(findFingersUp(result,5))
     if findFingersUp(result,5):
         # mouse moving offset
-        mOff = moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
+        mOff = smoothMouseMove(index_tip.x,index_tip.y,timestamp_ms)
+        # mOff = moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
         
         if findFingersUp(result,9):
-            mouseClick(index_tip,middle_tip, timestamp_ms, mOff)
+            mouseClick(index_tip,middle_tip, timestamp_ms)
 
     # pos = abs(round(index_tip.x,2)*SCREEN_SIZE[0]), abs(round(index_tip.y,2) * SCREEN_SIZE[1])
     # mPos.put(pos)
