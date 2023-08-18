@@ -199,27 +199,50 @@ def findFingersUp(result: HandLandmarkerResult, base):
     fingersPoints = result.hand_landmarks[0]
     # print(fingersPoints[0])
     tip = fingersPoints[base + 3].x, fingersPoints[base + 3].y 
-    origin = fingersPoints[base + 1].x, fingersPoints[base + 1].y
+    
     wrist = fingersPoints[0].x, fingersPoints[0].y
 
     # print(fingerPoints)
-    if math.dist(tip,wrist) > math.dist(wrist,origin):
-        return True
-    return False
+    
+    
+    for i in range(3):
+        origin = fingersPoints[base + 1].x, fingersPoints[base + 1].y
+        if math.dist(tip,wrist) <= math.dist(wrist,origin):
+            return False
 
-def mouseClick(indexTip, middleTip, time_ms):
+    return True
+
+def mouseLeftClick(indexTip, middleTip, time_ms):
     global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
     if (time_ms - prevClickTime_ms) < CLICK_DELAY_MS:
         return
     
     dist = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
     dist = round(dist, 2)
-    print(dist)
+    # print(dist)
     if dist < MOUSE_CLICK_DIST:
+        
         pag.click()
         print("mouse click")
         prevClickTime_ms = time_ms
-        pass
+
+
+def mouseRightClick(indexTip, middleTip,ringTip, time_ms):
+    global MOUSE_CLICK_DIST, CLICK_DELAY_MS, prevClickTime_ms
+    if (time_ms - prevClickTime_ms) < CLICK_DELAY_MS:
+        return
+    
+    distIM = math.dist((indexTip.x, indexTip.y), (middleTip.x,middleTip.y))
+    distIM = round(distIM, 2)
+
+    distMR = math.dist((middleTip.x, middleTip.y), (ringTip.x,ringTip.y))
+    distMR = round(distMR, 2)
+
+    if distIM < MOUSE_CLICK_DIST and distMR < MOUSE_CLICK_DIST:
+        pag.rightClick()
+        print("mouse click")
+        prevClickTime_ms = time_ms
+
 
 # Create a hand landmarker instance with the live stream mode:
 def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
@@ -232,14 +255,23 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     
     index_tip = result.hand_landmarks[0][8]
     middle_tip = result.hand_landmarks[0][12]
+    ring_tip = result.hand_landmarks[0][16]
+    mid = findFingersUp(result, 9)
+    ring = findFingersUp(result, 13)
+    ind = findFingersUp(result,5)
+
+    print(ind, mid, ring)
+
     # print(index_tip.z)
     # smooth = 
     # print(findFingersUp(result,5))
-    if findFingersUp(result,5):
+    if ind:
         moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
         
-        if findFingersUp(result,9):
-            mouseClick(index_tip,middle_tip, timestamp_ms)
+        if mid and ring:
+            mouseRightClick(index_tip,middle_tip,ring_tip, timestamp_ms)
+        elif mid:
+            mouseLeftClick(index_tip,middle_tip, timestamp_ms)
 
     # pos = abs(round(index_tip.x,2)*SCREEN_SIZE[0]), abs(round(index_tip.y,2) * SCREEN_SIZE[1])
     # mPos.put(pos)
