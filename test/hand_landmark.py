@@ -197,12 +197,8 @@ def findFingersUp(result: HandLandmarkerResult, base):
 
     """
     fingersPoints = result.hand_landmarks[0]
-    # print(fingersPoints[0])
     tip = fingersPoints[base + 3].x, fingersPoints[base + 3].y 
-    
     wrist = fingersPoints[0].x, fingersPoints[0].y
-
-    # print(fingerPoints)
     
     
     for i in range(3):
@@ -260,11 +256,11 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
     ring = findFingersUp(result, 13)
     ind = findFingersUp(result,5)
 
-    print(ind, mid, ring)
 
     # print(index_tip.z)
     # smooth = 
     # print(findFingersUp(result,5))
+    print(ind, mid, ring)
     if ind:
         moveMyMouse(index_tip.x,index_tip.y,timestamp_ms)
         
